@@ -69,12 +69,11 @@ var (
 		systemcontracts.ValidatorContract:          {},
 		systemcontracts.SlashContract:              {},
 		systemcontracts.SystemRewardContract:       {},
-		systemcontracts.LightClientContract:        {},
-		systemcontracts.RelayerHubContract:         {},
-		systemcontracts.GovHubContract:             {},
-		systemcontracts.TokenHubContract:           {},
-		systemcontracts.RelayerIncentivizeContract: {},
-		systemcontracts.CrossChainContract:         {},
+		systemcontracts.StakingPoolContract:        {},
+		systemcontracts.GovernanceContract: 	    {},
+		systemcontracts.ChainConfigContract:        {},
+		systemcontracts.RuntimeUpgradeContract:     {},
+		systemcontracts.DeployerProxyContract:      {},
 	}
 )
 
@@ -1024,23 +1023,7 @@ func (p *Parlia) distributeIncoming(val common.Address, state *state.IntraBlockS
 	state.SetBalance(consensus.SystemAddress, u256.Num0)
 	state.AddBalance(coinbase, balance)
 
-	doDistributeSysReward := state.GetBalance(systemcontracts.SystemRewardContract).Cmp(maxSystemBalance) < 0
-	if doDistributeSysReward {
-		var rewards = new(uint256.Int)
-		rewards = rewards.Rsh(balance, systemRewardPercent)
-		if rewards.Cmp(u256.Num0) > 0 {
-			var err error
-			var tx types.Transaction
-			var receipt *types.Receipt
-			if systemTxs, tx, receipt, err = p.distributeToSystem(rewards, state, header, len(txs), systemTxs, usedGas, mining); err != nil {
-				return nil, nil, nil, err
-			}
-			txs = append(txs, tx)
-			receipts = append(receipts, receipt)
-			//log.Debug("[parlia] distribute to system reward pool", "block hash", header.Hash(), "amount", rewards)
-			balance = balance.Sub(balance, rewards)
-		}
-	}
+
 	//log.Debug("[parlia] distribute to validator contract", "block hash", header.Hash(), "amount", balance)
 	var err error
 	var tx types.Transaction
@@ -1083,11 +1066,12 @@ func (p *Parlia) initContract(state *state.IntraBlockState, header *types.Header
 	contracts := []common.Address{
 		systemcontracts.ValidatorContract,
 		systemcontracts.SlashContract,
-		systemcontracts.LightClientContract,
-		systemcontracts.RelayerHubContract,
-		systemcontracts.TokenHubContract,
-		systemcontracts.RelayerIncentivizeContract,
-		systemcontracts.CrossChainContract,
+		systemcontracts.SystemRewardContract,
+		systemcontracts.StakingPoolContract,
+		systemcontracts.GovernanceContract,
+		systemcontracts.ChainConfigContract,
+		systemcontracts.RuntimeUpgradeContract,
+		systemcontracts.DeployerProxyContract,
 	}
 	// get packed data
 	data, err := p.validatorSetABI.Pack(method)
