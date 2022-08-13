@@ -252,6 +252,7 @@ type ChainConfig struct {
 	MirrorSyncBlock *big.Int `json:"mirrorSyncBlock,omitempty" toml:",omitempty"` // mirrorSyncBlock switch block (nil = no fork, 0 = already activated)
 	BrunoBlock      *big.Int `json:"brunoBlock,omitempty" toml:",omitempty"`      // brunoBlock switch block (nil = no fork, 0 = already activated)
 	EulerBlock      *big.Int `json:"eulerBlock,omitempty" toml:",omitempty"`      // eulerBlock switch block (nil = no fork, 0 = already activated)
+        BlockRewardsBlock *big.Int `json:"blockRewardsBlock,omitempty" toml:",omitempty"`
 
 	// EIP-3675: Upgrade consensus to Proof-of-Stake
 	TerminalTotalDifficulty *big.Int    `json:"terminalTotalDifficulty,omitempty"` // The merge happens when terminal total difficulty is reached
@@ -303,6 +304,7 @@ type ParliaConfig struct {
 	InMemory bool
 	Period   uint64 `json:"period"` // Number of seconds between blocks to enforce
 	Epoch    uint64 `json:"epoch"`  // Epoch length to update validatorSet
+        BlockRewards uint64 `json:"blockRewards"` // Block rewards to be paid for each produced block
 }
 
 // String implements the stringer interface, returning the consensus engine details.
@@ -571,6 +573,10 @@ func (c *ChainConfig) IsGrayGlacier(num uint64) bool {
 	return isForked(c.GrayGlacierBlock, num)
 }
 
+func (c *ChainConfig) IsBlockRewardsBlock(num uint64) bool {
+    return isForked(c.BlockRewardsBlock, num)
+}
+
 // CheckCompatible checks whether scheduled fork transitions have been imported
 // with a mismatching chain configuration.
 func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64) *ConfigCompatError {
@@ -779,6 +785,7 @@ type Rules struct {
 	IsByzantium, IsConstantinople, IsPetersburg, IsIstanbul bool
 	IsBerlin, IsLondon                                      bool
 	IsParlia, IsStarknet                                    bool
+        HasBlockRewards      bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -799,6 +806,7 @@ func (c *ChainConfig) Rules(num uint64) *Rules {
 		IsBerlin:           c.IsBerlin(num),
 		IsLondon:           c.IsLondon(num),
 		IsParlia:           c.Parlia != nil,
+                HasBlockRewards:      c.IsBlockRewardsBlock(num),
 	}
 }
 

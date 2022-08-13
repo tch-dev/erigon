@@ -1016,6 +1016,13 @@ func (p *Parlia) distributeIncoming(val common.Address, state *state.IntraBlockS
 	usedGas *uint64, mining bool,
 ) (types.Transactions, types.Transactions, types.Receipts, error) {
 	coinbase := header.Coinbase
+        if rules := p.chainConfig.Rules(header.Number.Uint64()); rules.HasBlockRewards {
+	   blockRewards := p.chainConfig.Parlia.BlockRewards
+	// if we have enabled block rewards and rewards are greater than 0 then
+	  if blockRewards > 0  {
+	    state.AddBalance(consensus.SystemAddress, uint256.NewInt(blockRewards))
+	  }
+        }
 	balance := state.GetBalance(consensus.SystemAddress).Clone()
 	if balance.Cmp(u256.Num0) <= 0 {
 		return txs, systemTxs, receipts, nil
