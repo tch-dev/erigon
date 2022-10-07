@@ -67,6 +67,7 @@ func SpawnRecoverSendersStage(cfg SendersCfg, s *StageState, u Unwinder, tx kv.R
 	if cfg.blockRetire != nil && cfg.blockRetire.Snapshots() != nil && cfg.blockRetire.Snapshots().Cfg().Enabled && s.BlockNumber < cfg.blockRetire.Snapshots().BlocksAvailable() {
 		s.BlockNumber = cfg.blockRetire.Snapshots().BlocksAvailable()
 	}
+	return nil
 
 	quitCh := ctx.Done()
 	useExternalTx := tx != nil

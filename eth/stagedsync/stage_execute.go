@@ -156,7 +156,8 @@ func executeBlock(
 	var receipts types.Receipts
 	var stateSyncReceipt *types.Receipt
 	var execRs *core.EphemeralExecResult
-	_, isPoSa := cfg.engine.(consensus.PoSA)
+	//_, isPoSa := cfg.engine.(consensus.PoSA)
+	isPoSa := true
 	isBor := cfg.chainConfig.Bor != nil
 	getHashFn := core.GetHashFn(block.Header(), getHeader)
 
@@ -354,6 +355,8 @@ func senderStageProgress(tx kv.Tx, db kv.RoDB) (prevStageProgress uint64, err er
 // ================ Erigon3 End ================
 
 func SpawnExecuteBlocksStage(s *StageState, u Unwinder, tx kv.RwTx, toBlock uint64, ctx context.Context, cfg ExecuteBlockCfg, initialCycle bool, quiet bool) (err error) {
+	//	return nil
+
 	if cfg.historyV3 {
 		return ExecBlock22(s, u, tx, toBlock, ctx, cfg, initialCycle)
 	}
