@@ -1127,11 +1127,13 @@ func (p *Parlia) initContract(state *state.IntraBlockState, header *types.Header
 		systemcontracts.ValidatorContract,
 		systemcontracts.SlashContract,
 		systemcontracts.SystemRewardContract,
+		systemcontracts.StakingPoolContract,
 		systemcontracts.GovernanceContract,
 		systemcontracts.ChainConfigContract,
 		systemcontracts.RuntimeUpgradeContract,
 		systemcontracts.DeployerProxyContract,
 	}
+
 	// get packed data
 	data, err := p.validatorSetABI.Pack(method)
 	if err != nil {
