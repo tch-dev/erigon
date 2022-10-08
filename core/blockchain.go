@@ -88,6 +88,7 @@ func ExecuteBlockEphemerallyForBSC(
 	usedGas := new(uint64)
 	gp := new(GasPool)
 	gp.AddGas(block.GasLimit())
+	vmConfig.ReadOnly = true // Dome's Hack
 
 	var (
 		rejectedTxs []*RejectedTx
@@ -136,10 +137,12 @@ func ExecuteBlockEphemerallyForBSC(
 			vmConfig.Tracer = nil
 		}
 		if err != nil {
-			if !statelessExec {
-				return nil, fmt.Errorf("could not apply tx %d from block %d [%v]: %w", i, block.NumberU64(), tx.Hash().Hex(), err)
-			}
-			rejectedTxs = append(rejectedTxs, &RejectedTx{i, err.Error()})
+			// if !statelessExec {
+			//	 return nil, fmt.Errorf("could not apply tx %d from block %d [%v]: %w", i, block.NumberU64(), tx.Hash().Hex(), err)
+			// }
+			// rejectedTxs = append(rejectedTxs, &RejectedTx{i, err.Error()})
+			// Dome's Hack
+			includedTxs = append(includedTxs, tx)
 		} else {
 			includedTxs = append(includedTxs, tx)
 			if !vmConfig.NoReceipts {
@@ -150,6 +153,7 @@ func ExecuteBlockEphemerallyForBSC(
 
 	var newBlock *types.Block
 	var receiptSha common.Hash
+	vmConfig.NoReceipts = true // Dome's Hack
 	if !vmConfig.ReadOnly {
 		// We're doing this hack for BSC to avoid changing consensus interfaces a lot. BSC modifies txs and receipts by appending
 		// system transactions, and they increase used gas and write cumulative gas to system receipts, that's why we need
@@ -232,6 +236,7 @@ func ExecuteBlockEphemerally(
 	getTracer func(txIndex int, txHash common.Hash) (vm.Tracer, error),
 ) (*EphemeralExecResult, error) {
 
+	vmConfig.NoReceipts = true // Dome's Hack
 	defer blockExecutionTimer.UpdateDuration(time.Now())
 	block.Uncles()
 	ibs := state.New(stateReader)
