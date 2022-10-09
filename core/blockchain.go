@@ -193,7 +193,7 @@ func ExecuteBlockEphemerallyForBSC(
 	if !vmConfig.NoReceipts {
 		bloom = newBlock.Bloom()
 		if !statelessExec && bloom != header.Bloom {
-			return nil, fmt.Errorf("bloom computed by execution: %x, in header: %x", bloom, header.Bloom)
+			// return nil, fmt.Errorf("bloom computed by execution: %x, in header: %x", bloom, header.Bloom)
 		}
 	}
 
