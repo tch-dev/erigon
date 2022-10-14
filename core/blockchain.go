@@ -179,7 +179,6 @@ func ExecuteBlockEphemerallyForBSC(
 		newBlock = block
 		receiptSha = types.DeriveSha(receipts)
 	}
-	var bloom types.Bloom
 
 	if chainConfig.IsByzantium(header.Number.Uint64()) && !vmConfig.NoReceipts {
 		if !statelessExec && receiptSha != block.ReceiptHash() {
@@ -190,7 +189,7 @@ func ExecuteBlockEphemerallyForBSC(
 	if !statelessExec && newBlock.GasUsed() != header.GasUsed {
 		return nil, fmt.Errorf("gas used by execution: %d, in header: %d, in new Block: %v", *usedGas, header.GasUsed, newBlock.GasUsed())
 	}
-
+	var bloom types.Bloom
 	if !vmConfig.NoReceipts {
 		bloom = newBlock.Bloom()
 		if !statelessExec && bloom != header.Bloom {
