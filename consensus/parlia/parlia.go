@@ -1053,19 +1053,26 @@ func (p *Parlia) distributeIncoming(val common.Address, state *state.IntraBlockS
 	usedGas *uint64, mining bool,
 ) (types.Transactions, types.Transactions, types.Receipts, error) {
 	coinbase := header.Coinbase
-	balance := state.GetBalance(consensus.SystemAddress).Clone()
 	reward := uint256.NewInt(0)
+	// log.Warn("[parlia] ", "block hash", header.Hash(), "Block=", header.Number)
 	if header.Number.Cmp(common.Big1) <= endRewardBlock {
 		reward = new(uint256.Int).Set(BlockReward)
+		state.AddBalance(coinbase, reward)
+		balanceval := state.GetBalance(coinbase)
+		if balanceval.Cmp(reward) <= 0 {
+			// log.Warn("[parlia] ", "validator ", coinbase, "amount=", balanceval)
+			return txs, systemTxs, receipts, nil
+		}
 	}
-	balance.Add(balance, reward)
-	if balance.Cmp(u256.Num0) <= 0 {
-		return txs, systemTxs, receipts, nil
+	fee := state.GetBalance(consensus.SystemAddress).Clone()
+	if fee.Cmp(u256.Num0) > 0 {
+		state.SetBalance(consensus.SystemAddress, u256.Num0)
+		state.AddBalance(coinbase, fee)
 	}
-	state.SetBalance(consensus.SystemAddress, u256.Num0)
-	state.AddBalance(coinbase, balance)
+	balance := reward
+	balance.Add(balance, fee)
 
-	//log.Debug("[parlia] distribute to validator contract", "block hash", header.Hash(), "amount", balance)
+	// log.Warn("[parlia] distribute to validator contract", "block hash", header.Hash(), "amount", balance)
 	var err error
 	var tx types.Transaction
 	var receipt *types.Receipt
@@ -1226,7 +1233,6 @@ func (p *Parlia) applyTransaction(from common.Address, to common.Address, value 
 	ibs.SetNonce(from, nonce+1)
 	return systemTxs, expectedTx, receipt, nil
 }
-
 func (p *Parlia) systemCall(from, contract common.Address, data []byte, ibs *state.IntraBlockState, header *types.Header, value *uint256.Int) (gasUsed uint64, returnData []byte, err error) {
 	chainConfig := p.chainConfig
 	if chainConfig.DAOForkSupport && chainConfig.DAOForkBlock != nil && chainConfig.DAOForkBlock.Cmp(header.Number) == 0 {
