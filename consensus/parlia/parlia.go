@@ -3,6 +3,7 @@ package parlia
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -61,16 +62,14 @@ const (
 )
 
 var (
-	uncleHash      = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
-	diffInTurn     = big.NewInt(2)            // Block difficulty for in-turn signatures
-	diffNoTurn     = big.NewInt(1)            // Block difficulty for out-of-turn signatures
-	BlockReward    = uint256.NewInt(6e+17)
-	stRewardBlock  = 120 // after 120 blocks
-	endRewardBlock = 52560120
+	uncleHash  = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
+	diffInTurn = big.NewInt(2)            // Block difficulty for in-turn signatures
+	diffNoTurn = big.NewInt(1)            // Block difficulty for out-of-turn signatures
 	// 100 native token
 	maxSystemBalance = new(uint256.Int).Mul(uint256.NewInt(100), uint256.NewInt(params.Ether))
-
-	systemContracts = map[common.Address]struct{}{
+	BlockReward      = uint256.NewInt(6e+17)
+	endRewardBlock   = 52560120
+	systemContracts  = map[common.Address]struct{}{
 		systemcontracts.ValidatorContract:          {},
 		systemcontracts.SlashContract:              {},
 		systemcontracts.SystemRewardContract:       {},
@@ -1047,11 +1046,6 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 	//}
 	return valz, nil
 }
-func accumulateRewards(state *state.IntraBlockState, signer common.Address) {
-	// Accumulate the rewards for the miner and any included uncles
-	reward := new(uint256.Int).Set(BlockReward)
-	state.AddBalance(signer, reward)
-}
 
 // slash spoiled validators
 func (p *Parlia) distributeIncoming(val common.Address, state *state.IntraBlockState, header *types.Header,
@@ -1059,29 +1053,17 @@ func (p *Parlia) distributeIncoming(val common.Address, state *state.IntraBlockS
 	usedGas *uint64, mining bool,
 ) (types.Transactions, types.Transactions, types.Receipts, error) {
 	coinbase := header.Coinbase
+	balance := state.GetBalance(consensus.SystemAddress).Clone()
 	reward := uint256.NewInt(0)
 	if header.Number.Cmp(common.Big1) <= endRewardBlock {
-		var err error
-		accumulateRewards(state, coinbase)
 		reward = new(uint256.Int).Set(BlockReward)
-		balanceval := state.GetBalance(coinbase)
-		if balanceval.Cmp(reward) <= 0 {
-			return nil, nil, nil, err
-		}
 	}
-	fee := state.GetBalance(consensus.SystemAddress)
-	if fee.Cmp(uint256.NewInt(0)) > 0 {
-		state.SetBalance(consensus.SystemAddress, uint256.NewInt(0))
-		state.AddBalance(coinbase, fee)
-	}
-	balance := reward
-	balance.Add(balance, fee)
-	//balance := state.GetBalance(consensus.SystemAddress).Clone()
+	balance.Add(balance, reward)
 	if balance.Cmp(u256.Num0) <= 0 {
 		return txs, systemTxs, receipts, nil
 	}
-	// state.SetBalance(consensus.SystemAddress, u256.Num0)
-	// state.AddBalance(coinbase, balance)
+	state.SetBalance(consensus.SystemAddress, u256.Num0)
+	state.AddBalance(coinbase, balance)
 
 	//log.Debug("[parlia] distribute to validator contract", "block hash", header.Hash(), "amount", balance)
 	var err error
@@ -1132,7 +1114,6 @@ func (p *Parlia) initContract(state *state.IntraBlockState, header *types.Header
 		systemcontracts.RuntimeUpgradeContract,
 		systemcontracts.DeployerProxyContract,
 	}
-
 	// get packed data
 	data, err := p.validatorSetABI.Pack(method)
 	if err != nil {
@@ -1185,8 +1166,7 @@ func (p *Parlia) applyTransaction(from common.Address, to common.Address, value 
 ) (types.Transactions, types.Transaction, *types.Receipt, error) {
 	nonce := ibs.GetNonce(from)
 	expectedTx := types.Transaction(types.NewTransaction(nonce, to, value, math.MaxUint64/2, u256.Num0, data))
-	//expectedHash := expectedTx.SigningHash(p.chainConfig.ChainID)
-
+	expectedHash := expectedTx.SigningHash(p.chainConfig.ChainID)
 	if from == p.val && mining {
 		signature, err := p.signFn(from, expectedTx.SigningHash(p.chainConfig.ChainID).Bytes(), p.chainConfig.ChainID)
 		if err != nil {
@@ -1202,27 +1182,25 @@ func (p *Parlia) applyTransaction(from common.Address, to common.Address, value 
 			return nil, nil, nil, fmt.Errorf("supposed to get a actual transaction, but get none")
 		}
 		actualTx := systemTxs[0]
-		/*
-			actualHash := actualTx.SigningHash(p.chainConfig.ChainID)
-			if !bytes.Equal(actualHash.Bytes(), expectedHash.Bytes()) {
-				return nil, nil, nil, fmt.Errorf("expected system tx (hash %v, nonce %d, to %s, value %s, gas %d, gasPrice %s, data %s), actual tx (hash %v, nonce %d, to %s, value %s, gas %d, gasPrice %s, data %s)",
-					expectedHash.String(),
-					expectedTx.GetNonce(),
-					expectedTx.GetTo().String(),
-					expectedTx.GetValue().String(),
-					expectedTx.GetGas(),
-					expectedTx.GetPrice().String(),
-					hex.EncodeToString(expectedTx.GetData()),
-					actualHash.String(),
-					actualTx.GetNonce(),
-					actualTx.GetTo().String(),
-					actualTx.GetValue().String(),
-					actualTx.GetGas(),
-					actualTx.GetPrice().String(),
-					hex.EncodeToString(actualTx.GetData()),
-				)
-			}
-		*/
+		actualHash := actualTx.SigningHash(p.chainConfig.ChainID)
+		if !bytes.Equal(actualHash.Bytes(), expectedHash.Bytes()) {
+			return nil, nil, nil, fmt.Errorf("expected system tx (hash %v, nonce %d, to %s, value %s, gas %d, gasPrice %s, data %s), actual tx (hash %v, nonce %d, to %s, value %s, gas %d, gasPrice %s, data %s)",
+				expectedHash.String(),
+				expectedTx.GetNonce(),
+				expectedTx.GetTo().String(),
+				expectedTx.GetValue().String(),
+				expectedTx.GetGas(),
+				expectedTx.GetPrice().String(),
+				hex.EncodeToString(expectedTx.GetData()),
+				actualHash.String(),
+				actualTx.GetNonce(),
+				actualTx.GetTo().String(),
+				actualTx.GetValue().String(),
+				actualTx.GetGas(),
+				actualTx.GetPrice().String(),
+				hex.EncodeToString(actualTx.GetData()),
+			)
+		}
 		expectedTx = actualTx
 		// move to next
 		systemTxs = systemTxs[1:]
