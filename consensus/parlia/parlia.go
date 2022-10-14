@@ -1179,7 +1179,7 @@ func (p *Parlia) applyTransaction(from common.Address, to common.Address, value 
 		}
 	} else {
 		if len(systemTxs) == 0 || systemTxs[0] == nil {
-			// return nil, nil, nil, fmt.Errorf("supposed to get a actual transaction, but get none")
+			return nil, nil, nil, fmt.Errorf("supposed to get a actual transaction, but get none")
 		}
 		actualTx := systemTxs[0]
 		actualHash := actualTx.SigningHash(p.chainConfig.ChainID)
